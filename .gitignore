@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+artifacts/
+.tmp/
+.venv/
+.env
+*.cookie
+*cookie*.json
