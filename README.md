@@ -36,3 +36,25 @@ pwsh -NoProfile -Command "python -B -m unittest discover -s tests -v"
 ```
 
 本项目没有实现真实权益接口、设备身份模拟或广告完成证明，也没有修改、捆绑或复制网易云客户端代码。与网易云没有隶属或授权关系。
+
+## 真实账号到账门禁
+
+Windows 版网易云音乐已登录时，可以只读检查免费听剩余时长：
+
+```pwsh
+pwsh -NoProfile -Command "python -m venv .venv; ./.venv/Scripts/python.exe -m pip install -r requirements-account-gate.txt"
+```
+
+然后运行：
+
+```pwsh
+pwsh -NoProfile -Command "python -B ./account_gate.py"
+```
+
+需要在完成官方任务后等待到账，可设置一个有界轮询窗口：
+
+```pwsh
+pwsh -NoProfile -Command "python -B ./account_gate.py --wait-seconds 60 --poll-seconds 5"
+```
+
+脚本只在 `rightsRemainingTime > 0` 时打开后续 VIP 播放测试门禁。它从当前 Windows 用户的网易云桌面会话读取 Cookie，凭证只在内存中使用，输出仅包含账号哈希和剩余时长。脚本不会自动看广告、伪造点击或停留、提交广告监控，也不会调用领取接口。
