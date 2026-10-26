@@ -148,6 +148,32 @@ pwsh -NoProfile -Command "python -B ./vip_probe.py --skip-stream"
 
 取流只请求播放地址的前 32 KB，不下载完整音频。探针不提交广告完成、点击、停留或领奖请求。
 
+## 手机端自动化
+
+`device_automation.py` 通过 ADB 驱动官方客户端走完免费听任务，并把到账与播放验证串成一条命令：
+
+```pwsh
+pwsh -NoProfile -Command "python -B ./device_automation.py"
+pwsh -NoProfile -Command "python -B ./device_automation.py --serial <设备序列号> --wait-seconds 120"
+```
+
+流程为：唤醒解锁 → 启动网易云 → 进入免费听 → 打开广告任务 → 点击落地页并停留 8 秒 → 返回客户端 → 轮询权益 → 验证 VIP 播放。
+
+- 元素按文案定位，标题与按钮同名时按宽度过滤；视频广告页无法导出界面时用登记坐标兜底。
+- 退出码：`0` 全部通过、`2` 权益未到账、`3` 播放未放行、`5` 无设备、`6` 手机端流程失败。
+- 输出含 `baseline_rights` 与 `rights_delta`，可看出权益变化。
+- 只操作官方客户端的可见界面，不调用广告或领奖接口。
+
+## 官方接口链路
+
+`api_trace.py` 解析客户端自己的 logcat，输出结构化调用链并识别奖励发放接口：
+
+```pwsh
+pwsh -NoProfile -Command "python -B ./api_trace.py --log <logcat文件>"
+```
+
+实测的奖励发放接口是 `/eapi/ad/listening/rights/gain`，调用时序见 [官方流程接口地图](docs/网易云/官方流程接口地图.md)。工具只读取已经发出的请求。
+
 ## 桌面启动器
 
 `start_desktop.ps1` 把“启动网易云客户端 → 等待就绪 → 权益门禁 → 播放验证”串成一次显式执行：
@@ -168,6 +194,7 @@ pwsh -NoProfile -File ./start_desktop.ps1 -StartClient -Probe
 - 离线模拟器不调用真实任务、广告监控、点击、观看完成或领奖接口。
 - 真实账号门禁不提交任何广告动作或权益变更请求。
 - 播放验证只读播放授权与前 32 KB 音频，不下载完整音频。
+- 手机端自动化只操作官方客户端界面，不构造、不重放广告或领奖请求。
 - 项目不包含设备身份模拟、广告完成证明、客户端修改或进程注入。
 - 不在真机上自动点击广告、自动停留或自动领取真实权益；这类行为属于虚假广告互动，不纳入实现。
 - 项目与网易云没有隶属或授权关系。

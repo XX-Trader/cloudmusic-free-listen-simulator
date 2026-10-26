@@ -5,12 +5,18 @@
 - [x] 修复离线状态机的六项复核缺陷：阶段时间倒退、可恢复拒绝的重试路径、停留阶段不可跳过、执行器审计串场、场景时间配置校验、`AutoRunner` 函数长度。
 - [x] 补齐测试证据层：真实 Python CLI 子进程、真实 PowerShell 包装器一致性、进程内审计钩子零网络守卫、审计字段与场景预期表断言。
 - [x] 只读探明网易云接口可用集合：`user/playlist`、`v6/playlist/detail`、`song/detail`、`song/enhance/player/url` 可用；`playlist/track/all`、`cloudsearch`、`recommend/songs` 被服务端拒绝，未纳入实现。
-- [x] 实现 P3 只读播放验证 `vip_probe.py`：权益门禁 → 自动筛选 VIP 候选 → 授权判定 → 32 KB 有界取流。
+- [x] 实现 P3 只读播放验证 `vip_probe.py`：权益门禁 → 自动筛选 VIP 候选 → 播放授权判定 → 32 KB 有界取流。
 - [x] 实现 P4 显式桌面启动器 `start_desktop.ps1`：客户端解析、启动、等待、门禁与探针联动，输出 JSON 摘要与退出码。
 - [x] 修正 `account_gate` 以支持注入只读请求器并对外隐藏账号原值。
-- [x] 实机验证：网易云桌面客户端定位到 `D:\Programs\CloudMusic\cloudmusic.exe`；权益为 0 时门禁与探针按设计短路，退出码 2。
 - [x] 建立“VIP 播放验证”与“桌面启动器”两套功能三件套。
-- [x] 全量测试 53 项通过。
+- [x] 手机端无线调试接入并定位官方任务入口：首页 → 免费听 → 领 30 分钟，任务条件为点击落地页并停留 8 秒。
+- [x] 观测到官方免费听流程的完整接口链：`ad/get`、`ad/start/info/upload`、`ad/monitor/*`、`ad/listening/rights/gain`、`free/tab/asset`、`song/enhance/privilege`。
+- [x] 定位奖励发放接口 `/eapi/ad/listening/rights/gain`，记录实测时序并写入官方流程接口地图。
+- [x] 实现链路提取工具 `api_trace.py`，可从 logcat 输出结构化调用链并识别奖励接口。
+- [x] 实现 P5 手机端自动化 `device_automation.py`：唤醒解锁、界面状态机、广告选择页下滑取卡、视频广告页坐标兜底、系统弹窗、8 秒停留、返回客户端、权益轮询与播放验证。
+- [x] 修正播放判定规则：实测权益生效时 `freeTimeTrialPrivilege` 仍为 false，权威判据是 `cannotListenReason` 为空且返回完整时长地址。
+- [x] 真机取得官方 30 分钟权益并跑出绿灯：`entitled`、206 取流 32 KB 带 ID3 头、退出码 0。
+- [x] 单元测试扩充到 74 项，全部通过。
 
 ## 2026-10-25
 

@@ -131,25 +131,32 @@ def fetch_player_entry(session: ProbeSession, song_id: int) -> dict:
 
 
 def evaluate_playback(entry: dict) -> PlaybackVerdict:
-    """依据授权字段判定播放结论；不下载音频。"""
+    """依据授权字段判定播放结论；不下载音频。
+
+    判据来自实测：权益为 0 时平台返回 `cannotListenReason = 1`；
+    权益生效后该字段为空，并给出完整时长（而非 30 秒试听）的播放地址。
+    `freeTimeTrialPrivilege` 描述的是另一套「试听」资源，不作为放行判据。
+    """
     free_listen = entry.get("freeTimeTrialPrivilege") or {}
     trial = entry.get("freeTrialPrivilege") or {}
     user_consumable = bool(free_listen.get("userConsumable"))
     remain_time = int(free_listen.get("remainTime") or 0)
     cannot_listen_reason = trial.get("cannotListenReason")
+    duration_ms = int(entry.get("time") or 0)
+    url_present = bool(entry.get("url"))
     if cannot_listen_reason:
         verdict = "blocked"
-    elif user_consumable and remain_time > 0:
+    elif url_present and duration_ms > 0:
         verdict = "entitled"
     else:
         verdict = "unknown"
     return PlaybackVerdict(
         verdict=verdict,
-        url_present=bool(entry.get("url")),
+        url_present=url_present,
         free_listen_user_consumable=user_consumable,
         free_listen_remain_time=remain_time,
         cannot_listen_reason=cannot_listen_reason,
-        duration_ms=int(entry.get("time") or 0),
+        duration_ms=duration_ms,
         bitrate=int(entry.get("br") or 0),
         source_fee=int(entry.get("fee") or 0),
     )

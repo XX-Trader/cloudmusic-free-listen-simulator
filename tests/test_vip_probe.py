@@ -181,6 +181,20 @@ class VipProbeTests(unittest.TestCase):
 
     def test_evaluate_playback_classifies_unknown_state(self):
         entry = _entitled_entry()
+        entry.pop("url", None)
+        entry["time"] = 0
+        entry["freeTrialPrivilege"] = {
+            "resConsumable": False,
+            "userConsumable": False,
+            "listenType": 0,
+            "cannotListenReason": 0,
+        }
+        verdict = vip_probe.evaluate_playback(entry)
+        self.assertEqual(verdict.verdict, "unknown")
+
+    def test_entitled_does_not_require_trial_privilege_fields(self):
+        """实测：权益生效时 freeTimeTrialPrivilege 仍为 false，判据应为无阻断且有完整地址。"""
+        entry = _entitled_entry()
         entry["freeTimeTrialPrivilege"] = {
             "resConsumable": False,
             "userConsumable": False,
@@ -191,10 +205,12 @@ class VipProbeTests(unittest.TestCase):
             "resConsumable": False,
             "userConsumable": False,
             "listenType": 0,
-            "cannotListenReason": 0,
+            "cannotListenReason": None,
         }
         verdict = vip_probe.evaluate_playback(entry)
-        self.assertEqual(verdict.verdict, "unknown")
+        self.assertEqual(verdict.verdict, "entitled")
+        self.assertTrue(verdict.url_present)
+        self.assertGreater(verdict.duration_ms, 0)
 
 
 if __name__ == "__main__":
