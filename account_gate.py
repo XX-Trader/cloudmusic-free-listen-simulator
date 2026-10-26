@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import base64
 import ctypes
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import hashlib
 import json
 import pathlib
@@ -37,6 +37,18 @@ class GateResult:
     ready_for_vip_probe: bool
     source: str = "desktop_session_read_only"
     claim_submitted: bool = False
+    account_id: int | None = None
+
+    def to_public_dict(self) -> dict[str, object]:
+        """返回可安全输出的字段；不包含原始账号 id。"""
+        return {
+            "logged_in": self.logged_in,
+            "account_hash": self.account_hash,
+            "rights_remaining_time": self.rights_remaining_time,
+            "ready_for_vip_probe": self.ready_for_vip_probe,
+            "source": self.source,
+            "claim_submitted": self.claim_submitted,
+        }
 
 
 def _unprotect(data: bytes) -> bytes:
@@ -120,10 +132,14 @@ def request_json(cookies: dict[str, str], path: str) -> dict:
         raise RuntimeError(f"服务返回 HTTP {error.code}") from error
 
 
-def read_gate(cookies: dict[str, str]) -> GateResult:
-    account_result = request_json(cookies, ACCOUNT_PATH)
+def read_gate(cookies: dict[str, str], requester=None) -> GateResult:
+    """读取登录状态与免费听余额；参数为会话与可选请求器；返回门禁结果。"""
+    fetch = requester if requester is not None else (
+        lambda path: request_json(cookies, path)
+    )
+    account_result = fetch(ACCOUNT_PATH)
     account_id = (account_result.get("account") or {}).get("id")
-    asset_result = request_json(cookies, ASSET_PATH) if account_id else {}
+    asset_result = fetch(ASSET_PATH) if account_id else {}
     remaining = int(
         (((asset_result.get("data") or {}).get("freeListen") or {}).get(
             "rightsRemainingTime", 0
@@ -139,15 +155,21 @@ def read_gate(cookies: dict[str, str]) -> GateResult:
         ),
         rights_remaining_time=max(0, remaining),
         ready_for_vip_probe=bool(account_id and remaining > 0),
+        account_id=account_id,
     )
 
 
 def wait_for_rights(
-    cookies: dict[str, str], *, wait_seconds: int = 0, poll_seconds: int = 5
+    cookies: dict[str, str],
+    *,
+    wait_seconds: int = 0,
+    poll_seconds: int = 5,
+    requester=None,
 ) -> GateResult:
+    """轮询等待权益到账；参数为会话与轮询窗口；返回最后一次门禁结果。"""
     deadline = time.monotonic() + max(0, wait_seconds)
     while True:
-        result = read_gate(cookies)
+        result = read_gate(cookies, requester)
         if result.ready_for_vip_probe or time.monotonic() >= deadline:
             return result
         time.sleep(max(1, poll_seconds))
@@ -165,7 +187,7 @@ def main() -> int:
         wait_seconds=args.wait_seconds,
         poll_seconds=args.poll_seconds,
     )
-    print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+    print(json.dumps(result.to_public_dict(), ensure_ascii=False, indent=2))
     return 0 if result.ready_for_vip_probe else 2
 
 

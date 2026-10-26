@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>免费听任务 · 本地界面模拟器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --red: #e60026;
+    --red-dark: #c20020;
+    --ink: #16181d;
+    --ink-2: #4a4f57;
+    --ink-3: #8b9098;
+    --line: rgba(0,0,0,.08);
+    --shell: #0d0f13;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 56px;
+    padding: 32px 24px;
+    background: #f2f3f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+  }
+
+  /* ---------- 侧栏说明 ---------- */
+  .side { width: 320px; flex: none; }
+  .side h1 { font-size: 22px; letter-spacing: -.3px; margin-bottom: 10px; }
+  .side p { font-size: 13px; line-height: 1.75; color: var(--ink-2); margin-bottom: 12px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .4px;
+    padding: 4px 9px; border-radius: 5px; background: #fff0f2; color: var(--red);
+    border: 1px solid rgba(230,0,38,.18); margin-bottom: 14px;
+  }
+  .rules { list-style: none; margin-top: 16px; border-top: 1px solid rgba(0,0,0,.08); }
+  .rules li {
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-2);
+    padding: 9px 0 9px 20px; border-bottom: 1px solid rgba(0,0,0,.06);
+    position: relative;
+  }
+  .rules li::before {
+    content: ""; position: absolute; left: 3px; top: 15px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--red); opacity: .55;
+  }
+  .rules b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 手机外壳 ---------- */
+  .phone {
+    width: 380px; height: 800px; flex: none;
+    background: var(--shell); border-radius: 46px; padding: 11px;
+    box-shadow: 0 0 0 1px #262a31, 0 30px 70px -20px rgba(15,20,30,.55), inset 0 0 0 1px #3a3f48;
+    position: relative;
+  }
+  .phone::after {
+    content: ""; position: absolute; left: 50%; bottom: 17px; transform: translateX(-50%);
+    width: 128px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.22);
+  }
+  .screen {
+    width: 100%; height: 100%; border-radius: 36px; overflow: hidden;
+    background: #fff; position: relative; display: flex; flex-direction: column;
+  }
+
+  /* ---------- 状态栏 ---------- */
+  .statusbar {
+    height: 40px; flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; font-size: 12px; font-weight: 600; color: #fff;
+    background: var(--red); letter-spacing: .2px;
+  }
+  .statusbar .icons { display: flex; align-items: center; gap: 5px; }
+  .statusbar .bars { display: flex; align-items: flex-end; gap: 2px; height: 10px; }
+  .statusbar .bars i { width: 3px; background: #fff; border-radius: 1px; display: block; }
+  .statusbar .bars i:nth-child(1) { height: 4px; }
+  .statusbar .bars i:nth-child(2) { height: 6px; }
+  .statusbar .bars i:nth-child(3) { height: 8px; }
+  .statusbar .bars i:nth-child(4) { height: 10px; opacity: .45; }
+  .battery {
+    width: 20px; height: 10px; border: 1.3px solid #fff; border-radius: 3px;
+    padding: 1.3px; position: relative;
+  }
+  .battery::after {
+    content: ""; position: absolute; right: -3.6px; top: 2.4px;
+    width: 2px; height: 3.6px; background: #fff; border-radius: 0 1px 1px 0;
+  }
+  .battery i { display: block; height: 100%; width: 72%; background: #fff; border-radius: 1px; }
+
+  /* ---------- 视图容器 ---------- */
+  .views { flex: 1; position: relative; overflow: hidden; }
+  .view {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    background: #fff; opacity: 0; pointer-events: none;
+    transform: translateX(14px); transition: opacity .22s ease, transform .26s ease;
+  }
+  .view.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .body { flex: 1; overflow-y: auto; }
+
+  /* ---------- 通用 ---------- */
+  .navbar {
+    height: 50px; flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 0 16px; background: var(--red); color: #fff; font-size: 16px; font-weight: 600;
+  }
+  .back {
+    width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+    cursor: pointer; border-radius: 50%; transition: background .15s;
+  }
+  .back:hover { background: rgba(255,255,255,.16); }
+  .back svg { width: 17px; height: 17px; }
+  .nav-note { margin-left: auto; font-size: 10.5px; font-weight: 500; opacity: .82; }
+
+  /* ---------- 首页 ---------- */
+  .home-top {
+    background: linear-gradient(170deg, var(--red) 0%, var(--red-dark) 62%, #a8001c 100%);
+    padding: 4px 20px 46px; color: #fff;
+  }
+  .search {
+    height: 34px; border-radius: 17px; background: rgba(255,255,255,.17);
+    display: flex; align-items: center; padding: 0 14px; gap: 8px;
+    font-size: 12.5px; color: rgba(255,255,255,.72);
+  }
+  .search svg { width: 14px; height: 14px; opacity: .8; }
+  .home-greet { margin-top: 20px; font-size: 21px; font-weight: 700; letter-spacing: -.2px; }
+  .home-sub { margin-top: 5px; font-size: 12px; color: rgba(255,255,255,.7); }
+
+  .entry-card {
+    margin: -34px 16px 0; background: #fff; border-radius: 16px; padding: 16px;
+    box-shadow: 0 8px 26px -12px rgba(20,24,32,.28);
+    display: flex; align-items: center; gap: 13px; cursor: pointer;
+    border: 1px solid rgba(0,0,0,.04); transition: transform .16s, box-shadow .16s;
+  }
+  .entry-card:hover { transform: translateY(-1px); box-shadow: 0 12px 30px -12px rgba(20,24,32,.34); }
+  .entry-icon {
+    width: 44px; height: 44px; flex: none; border-radius: 13px;
+    background: linear-gradient(140deg, #ff4a63, var(--red));
+    display: grid; place-items: center; color: #fff;
+  }
+  .entry-icon svg { width: 23px; height: 23px; }
+  .entry-text { flex: 1; min-width: 0; }
+  .entry-title { font-size: 14.5px; font-weight: 650; }
+  .entry-desc { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+  .entry-arrow { color: var(--ink-3); flex: none; }
+  .entry-arrow svg { width: 15px; height: 15px; }
+
+  .section-title {
+    padding: 22px 20px 12px; font-size: 13.5px; font-weight: 650; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .section-title span:last-child { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+
+  .grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px 8px; padding: 0 20px 26px; }
+  .grid-item { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .grid-dot {
+    width: 46px; height: 46px; border-radius: 15px; background: #f5f6f8;
+    display: grid; place-items: center; color: #6a7079;
+  }
+  .grid-dot svg { width: 20px; height: 20px; }
+  .grid-item span { font-size: 10.5px; color: var(--ink-2); }
+
+  /* ---------- 免费听页 ---------- */
+  .ft-hero {
+    background: linear-gradient(168deg, #2b1418 0%, #1b1013 55%, #120b0d 100%);
+    padding: 22px 20px 26px; color: #fff;
+  }
+  .ft-label { font-size: 11.5px; color: rgba(255,255,255,.55); letter-spacing: .6px; }
+  .ft-balance { display: flex; align-items: baseline; gap: 6px; margin-top: 9px; }
+  .ft-balance b { font-size: 44px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
+  .ft-balance em { font-style: normal; font-size: 13px; color: rgba(255,255,255,.62); }
+  .ft-hint { margin-top: 12px; font-size: 11.5px; color: rgba(255,255,255,.45); line-height: 1.6; }
+
+  .ft-actions { padding: 18px 16px 0; }
+  .btn-main {
+    width: 100%; height: 48px; border: 0; border-radius: 24px; cursor: pointer;
+    background: linear-gradient(96deg, #ff3b55, var(--red)); color: #fff;
+    font-size: 15px; font-weight: 650; letter-spacing: .2px;
+    font-family: inherit; box-shadow: 0 8px 20px -8px rgba(230,0,38,.6);
+    transition: transform .14s, filter .14s;
+  }
+  .btn-main:hover { filter: brightness(1.05); }
+  .btn-main:active { transform: scale(.985); }
+  .btn-main:disabled { background: #e8eaee; color: #a9aeb6; box-shadow: none; cursor: not-allowed; }
+
+  .ft-list { padding: 22px 20px; }
+  .ft-list-title { font-size: 12.5px; font-weight: 650; margin-bottom: 10px; }
+  .rec {
+    display: flex; align-items: center; gap: 10px; padding: 11px 0;
+    border-bottom: 1px solid var(--line); font-size: 12px;
+  }
+  .rec-dot { width: 6px; height: 6px; border-radius: 50%; background: #d3d6db; flex: none; }
+  .rec-dot.ok { background: #22a06b; }
+  .rec-dot.bad { background: #d9435a; }
+  .rec-t { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+  .rec-x { color: var(--ink-2); flex: 1; }
+  .rec-v { font-weight: 650; flex: none; }
+  .rec-v.ok { color: #17865a; }
+  .rec-v.bad { color: #c53449; }
+  .empty { font-size: 11.5px; color: var(--ink-3); padding: 8px 0; }
+
+  /* ---------- 广告页 ---------- */
+  #view-ad { background: #0a0b0e; }
+  .ad-stage { flex: 1; position: relative; overflow: hidden; }
+  .ad-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(120% 80% at 18% 8%, rgba(255,86,110,.42) 0%, transparent 58%),
+      radial-gradient(110% 90% at 88% 92%, rgba(72,120,255,.32) 0%, transparent 62%),
+      linear-gradient(150deg, #1a1220 0%, #0d0f16 55%, #101720 100%);
+  }
+  .ad-bg::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  .ad-top {
+    position: relative; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; color: rgba(255,255,255,.72); font-size: 11.5px;
+  }
+  .ad-tag {
+    padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,.1);
+    font-size: 10px; letter-spacing: .5px;
+  }
+  .ad-timer {
+    font-variant-numeric: tabular-nums; font-weight: 650;
+    background: rgba(0,0,0,.4); padding: 3px 10px; border-radius: 20px;
+    color: #fff; font-size: 11.5px; border: 1px solid rgba(255,255,255,.12);
+  }
+  .ad-center {
+    position: relative; height: calc(100% - 46px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 30px; text-align: center; color: #fff;
+  }
+  .ad-logo {
+    width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center;
+    background: linear-gradient(140deg, #ff5a72, #c20020);
+    box-shadow: 0 18px 40px -14px rgba(230,0,38,.7); margin-bottom: 22px;
+    font-size: 26px; font-weight: 800; letter-spacing: -1px;
+  }
+  .ad-brand { font-size: 19px; font-weight: 700; letter-spacing: .4px; }
+  .ad-slogan { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 9px; line-height: 1.7; }
+  .ad-click {
+    margin-top: 30px; padding: 13px 34px; border-radius: 26px; cursor: pointer;
+    background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.26);
+    color: #fff; font-size: 13.5px; font-weight: 650; font-family: inherit;
+    transition: all .18s; letter-spacing: .3px;
+  }
+  .ad-click:hover { background: rgba(255,255,255,.18); }
+  .ad-click.done {
+    background: rgba(34,160,107,.18); border-color: rgba(34,160,107,.5);
+    color: #6ee7b0; cursor: default;
+  }
+  .ad-progress {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: rgba(255,255,255,.09);
+  }
+  .ad-progress i {
+    display: block; height: 100%; width: 0;
+    background: linear-gradient(90deg, #ff5a72, var(--red));
+    transition: width .3s linear;
+  }
+  .ad-foot {
+    flex: none; padding: 16px 20px 24px; background: #0a0b0e;
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .ad-status {
+    font-size: 11.5px; color: rgba(255,255,255,.45); text-align: center;
+    margin-bottom: 12px; min-height: 16px; transition: color .2s;
+  }
+  .ad-status.ready { color: #6ee7b0; }
+  .ad-status.warn { color: #ffb35c; }
+  .btn-claim {
+    width: 100%; height: 46px; border: 0; border-radius: 23px; cursor: pointer;
+    font-size: 14.5px; font-weight: 650; font-family: inherit;
+    background: #22262e; color: #6c737e; transition: all .2s;
+  }
+  .btn-claim.ready {
+    background: linear-gradient(96deg, #ff3b55, var(--red)); color: #fff;
+    box-shadow: 0 8px 22px -8px rgba(230,0,38,.65);
+  }
+  .btn-claim.ready:active { transform: scale(.985); }
+
+  /* ---------- 成功页 ---------- */
+  #view-done { background: #fff; }
+  .done-wrap {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 0 32px; text-align: center;
+  }
+  .done-ring {
+    width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center;
+    background: linear-gradient(140deg, #ff4a63, var(--red)); color: #fff;
+    box-shadow: 0 18px 40px -14px rgba(230,0,38,.6);
+    animation: pop .42s cubic-bezier(.2,1.3,.4,1);
+  }
+  .done-ring svg { width: 42px; height: 42px; }
+  @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .done-title { font-size: 20px; font-weight: 700; margin-top: 24px; }
+  .done-amount { font-size: 15px; color: var(--red); font-weight: 700; margin-top: 10px; }
+  .done-note {
+    font-size: 11.5px; color: var(--ink-3); line-height: 1.75; margin-top: 18px;
+    padding: 12px 14px; background: #f7f8fa; border-radius: 10px; text-align: left;
+  }
+  .done-note b { color: var(--ink-2); font-weight: 600; }
+  .done-actions { padding: 0 20px 26px; display: grid; gap: 10px; }
+  .btn-ghost {
+    width: 100%; height: 44px; border-radius: 22px; cursor: pointer; font-family: inherit;
+    background: #fff; border: 1px solid #dfe2e7; color: var(--ink-2);
+    font-size: 13.5px; font-weight: 600; transition: background .15s;
+  }
+  .btn-ghost:hover { background: #f7f8fa; }
+
+  /* ---------- 模拟水印 ---------- */
+  .sim-strip {
+    flex: none; height: 26px; display: flex; align-items: center; justify-content: center;
+    gap: 6px; font-size: 10px; letter-spacing: .5px; color: #fff;
+    background: repeating-linear-gradient(45deg, #2a2e36 0 8px, #232730 8px 16px);
+  }
+  .sim-strip i { width: 4px; height: 4px; border-radius: 50%; background: #ffb35c; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: absolute; left: 50%; bottom: 74px; transform: translate(-50%, 12px);
+    background: rgba(16,18,22,.92); color: #fff; font-size: 12px; font-weight: 500;
+    padding: 10px 18px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: all .22s; z-index: 40; max-width: 78%; text-align: center; line-height: 1.5;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 900px) {
+    body { flex-direction: column; gap: 28px; padding: 20px 12px; }
+    .side { width: 100%; max-width: 380px; }
+    .phone { width: 100%; max-width: 380px; height: 740px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="side">
+  <div class="badge">本地界面模拟 · 不联网</div>
+  <h1>免费听任务流程复刻</h1>
+  <p>把手机上的「领 30 分钟免费听」完整搬到本地：领任务、看广告、点击、停留倒计时、领奖、余额到账。所有界面和数据都只存在于这个页面里。</p>
+  <ul class="rules">
+    <li><b>零网络请求</b>：没有接口调用，没有账号凭证。</li>
+    <li><b>假广告</b>：广告画面与品牌均为本地绘制。</li>
+    <li><b>假余额</b>：30 分钟只写在页面内存里。</li>
+    <li><b>规则可调</b>：停留秒数在代码里，可自行改。</li>
+  </ul>
+</div>
+
+<div class="phone">
+  <div class="screen">
+    <div class="statusbar">
+      <span>9:41</span>
+      <div class="icons">
+        <div class="bars"><i></i><i></i><i></i><i></i></div>
+        <div class="battery"><i></i></div>
+      </div>
+    </div>
+
+    <div class="views">
+
+      <!-- 首页 -->
+      <div class="view active" id="view-home">
+        <div class="body" style="background:#f7f8fa;">
+          <div class="home-top">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              搜索音乐、播客、视频
+            </div>
+            <div class="home-greet">晚上好</div>
+            <div class="home-sub">今天也有好歌等你</div>
+          </div>
+
+          <div class="entry-card" id="entryFreeListen">
+            <div class="entry-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><circle cx="12" cy="18" r="3"/><path d="M12 3l7 3"/></svg>
+            </div>
+            <div class="entry-text">
+              <div class="entry-title">免费听</div>
+              <div class="entry-desc">看广告领 30 分钟 VIP 歌曲试听</div>
+            </div>
+            <div class="entry-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+
+          <div class="section-title"><span>常用功能</span><span>本地演示</span></div>
+          <div class="grid">
+            <div class="grid-item"><div class="grid-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><span>每日推荐</span></div>
+            <div class="grid-item"><div class="grid-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></div><span>歌单</span></div>
+            <div class="grid-item"><div class="grid-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M4 12h16"/></svg></div><span>排行榜</span></div>
+            <div class="grid-item"><div class="grid-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/></svg></div><span>播客</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 免费听 -->
+      <div class="view" id="view-ft">
+        <div class="navbar">
+          <div class="back" data-back="home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M15 5l-7 7 7 7"/></svg>
+          </div>
+          <span>免费听</span>
+          <span class="nav-note">本地模拟</span>
+        </div>
+        <div class="body">
+          <div class="ft-hero">
+            <div class="ft-label">免费听剩余时长</div>
+            <div class="ft-balance"><b id="ftBalance">0</b><em>分钟</em></div>
+            <div class="ft-hint">通过观看广告任务获得，可用于播放 VIP 歌曲。<br>此处余额仅存在于当前页面。</div>
+          </div>
+
+          <div class="ft-actions">
+            <button class="btn-main" id="btnStartTask">领 30 分钟</button>
+          </div>
+
+          <div class="ft-list">
+            <div class="ft-list-title">领取记录</div>
+            <div id="recList"><div class="empty">暂无记录</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 广告 -->
+      <div class="view" id="view-ad">
+        <div class="ad-stage">
+          <div class="ad-bg"></div>
+          <div class="ad-top">
+            <span class="ad-tag">广告 · 本地模拟</span>
+            <span class="ad-timer" id="adTimer">15s</span>
+          </div>
+          <div class="ad-center">
+            <div class="ad-logo">M</div>
+            <div class="ad-brand">MOCK 音乐节</div>
+            <div class="ad-slogan">这是一段本地生成的广告画面<br>不加载任何外部资源</div>
+            <button class="ad-click" id="btnAdClick">点击广告</button>
+          </div>
+          <div class="ad-progress"><i id="adBar"></i></div>
+        </div>
+        <div class="ad-foot">
+          <div class="ad-status" id="adStatus">观看中，请保持停留</div>
+          <button class="btn-claim" id="btnClaim" disabled>领取奖励</button>
+        </div>
+      </div>
+
+      <!-- 完成 -->
+      <div class="view" id="view-done">
+        <div class="body" style="display:flex;flex-direction:column;">
+          <div class="done-wrap">
+            <div class="done-ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>
+            </div>
+            <div class="done-title">领取成功</div>
+            <div class="done-amount">+30 分钟免费听</div>
+            <div class="done-note">
+              <b>这是模拟结果。</b>本页面没有连接网易云，没有提交任何广告观看或点击记录，也没有产生真实权益。余额只保存在当前页面的内存中，刷新即归零。
+            </div>
+          </div>
+          <div class="done-actions">
+            <button class="btn-main" id="btnBackFt">返回免费听</button>
+            <button class="btn-ghost" id="btnAgain">再模拟一次</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <div class="sim-strip"><i></i>LOCAL SIMULATION · 无网络 · 无真实权益</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STAY_SECONDS = 15;      // 广告停留时长（秒），可自行调整
+  var REWARD_MINUTES = 30;    // 每次奖励分钟数
+
+  var state = {
+    balance: 0,
+    records: [],
+    left: STAY_SECONDS,
+    clicked: false,
+    timer: null
+  };
+
+  var el = function (id) { return document.getElementById(id); };
+  var toastTimer = null;
+
+  function toast(msg) {
+    var node = el("toast");
+    node.textContent = msg;
+    node.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { node.classList.remove("show"); }, 2000);
+  }
+
+  function show(view) {
+    var views = document.querySelectorAll(".view");
+    for (var i = 0; i < views.length; i++) views[i].classList.remove("active");
+    el("view-" + view).classList.add("active");
+  }
+
+  function renderBalance() {
+    el("ftBalance").textContent = state.balance;
+  }
+
+  function renderRecords() {
+    var box = el("recList");
+    if (!state.records.length) {
+      box.innerHTML = '<div class="empty">暂无记录</div>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < state.records.length; i++) {
+      var r = state.records[i];
+      html += '<div class="rec">' +
+        '<span class="rec-dot ' + r.cls + '"></span>' +
+        '<span class="rec-t">' + r.time + '</span>' +
+        '<span class="rec-x">' + r.text + '</span>' +
+        '<span class="rec-v ' + r.cls + '">' + r.value + '</span>' +
+        '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function nowText() {
+    var d = new Date();
+    var p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+
+  function resetAd() {
+    clearInterval(state.timer);
+    state.left = STAY_SECONDS;
+    state.clicked = false;
+    el("adTimer").textContent = STAY_SECONDS + "s";
+    el("adBar").style.width = "0%";
+    el("adStatus").textContent = "观看中，请保持停留";
+    el("adStatus").className = "ad-status";
+    var clickBtn = el("btnAdClick");
+    clickBtn.textContent = "点击广告";
+    clickBtn.classList.remove("done");
+    var claimBtn = el("btnClaim");
+    claimBtn.disabled = true;
+    claimBtn.classList.remove("ready");
+  }
+
+  function startAd() {
+    resetAd();
+    show("ad");
+    var total = STAY_SECONDS;
+    state.timer = setInterval(function () {
+      state.left -= 1;
+      var left = Math.max(0, state.left);
+      el("adTimer").textContent = left + "s";
+      el("adBar").style.width = ((total - left) / total * 100) + "%";
+
+      if (left > 0 && !state.clicked) {
+        el("adStatus").textContent = "观看中，请保持停留";
+        el("adStatus").className = "ad-status";
+      } else if (left > 0 && state.clicked) {
+        el("adStatus").textContent = "停留计时中，还需 " + left + " 秒";
+        el("adStatus").className = "ad-status";
+      }
+
+      if (left <= 0) {
+        clearInterval(state.timer);
+        state.timer = null;
+        if (state.clicked) {
+          el("adStatus").textContent = "停留已满足，可以领取";
+          el("adStatus").className = "ad-status ready";
+          var claimBtn = el("btnClaim");
+          claimBtn.disabled = false;
+          claimBtn.classList.add("ready");
+        } else {
+          el("adStatus").textContent = "未检测到广告点击，无法领取";
+          el("adStatus").className = "ad-status warn";
+        }
+      }
+    }, 1000);
+  }
+
+  function onAdClick() {
+    if (state.clicked) return;
+    state.clicked = true;
+    var btn = el("btnAdClick");
+    btn.textContent = "已点击";
+    btn.classList.add("done");
+    toast("已记录模拟点击（仅本页内存）");
+  }
+
+  function onClaim() {
+    if (state.timer) return;
+    if (!state.clicked) { toast("需要先点击广告"); return; }
+    if (state.left > 0) { toast("停留时间不足"); return; }
+
+    state.balance += REWARD_MINUTES;
+    state.records.unshift({
+      time: nowText(),
+      text: "观看广告任务",
+      value: "+" + REWARD_MINUTES + " 分钟",
+      cls: "ok"
+    });
+    renderBalance();
+    renderRecords();
+    show("done");
+  }
+
+  function bind(id, event, handler) {
+    var node = el(id);
+    if (node) node.addEventListener(event, handler);
+  }
+
+  bind("entryFreeListen", "click", function () { renderBalance(); renderRecords(); show("ft"); });
+  bind("btnStartTask", "click", function () {
+    if (state.balance >= REWARD_MINUTES * 3) {
+      toast("模拟上限已到（本页最多累计 90 分钟）");
+      return;
+    }
+    startAd();
+  });
+  bind("btnAdClick", "click", onAdClick);
+  bind("btnClaim", "click", onClaim);
+  bind("btnBackFt", "click", function () { show("ft"); });
+  bind("btnAgain", "click", function () { show("ft"); startAd(); });
+
+  var backs = document.querySelectorAll("[data-back]");
+  for (var i = 0; i < backs.length; i++) {
+    backs[i].addEventListener("click", function () {
+      clearInterval(state.timer);
+      state.timer = null;
+      show(this.getAttribute("data-back"));
+    });
+  }
+
+  renderBalance();
+  renderRecords();
+})();
+</script>
+</body>
+</html>
